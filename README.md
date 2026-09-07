@@ -1,18 +1,18 @@
 # Android TV Go Proxy
 
-Связка для быстрого управления Android TV приставкой из iRidium без медленного `adb shell` на каждое нажатие.
+Связка для быстрого сетевого управления Android TV без медленного `adb shell` на каждое нажатие.
 
 Идея такая:
 
-- Go-сервер хранит embedded `android/iridi-keyserver.jar`, поднимает веб-интерфейс, работает как watchdog и предоставляет UDP-прокси.
-- Управление из iRidium может идти через UDP-прокси Go-сервера либо напрямую на jar-сервис приставки по UDP/TCP.
+- Go-сервер хранит embedded `android/android-tv-agent.jar`, поднимает веб-интерфейс, работает как watchdog и предоставляет UDP-прокси.
+- Управление может идти через UDP-прокси Go-сервера либо напрямую на jar-сервис приставки по UDP/TCP.
 - Если jar на приставке пропал, Go-сервер через ADB заново пушит jar в `/data/local/tmp` и запускает его.
 
 ## Что где работает
 
 ```text
-iRidium  ---> UDP 10000       ---> Go proxy ---> UDP 17891 ---> Android приставка
-iRidium  ------------------------------------> UDP/TCP 17891 ---> IridiKeyServer.jar
+Клиент   ---> UDP 10000       ---> Go proxy ---> UDP 17891 ---> Android приставка
+Клиент   ------------------------------------> UDP/TCP 17891 ---> AndroidTVAgent.jar
 Go UI    ---> HTTP 10000      ---> настройка, scan, watchdog, install/restart
 Go       ---> ADB 5555        ---> push jar, start jar, проверка состояния
 ```
@@ -24,8 +24,8 @@ Go       ---> ADB 5555        ---> push jar, start jar, проверка сос�
 - jar на приставке: `17891`
 - ADB на приставке: `5555`
 - файл состояния: `devices.json`
-- jar на приставке: `/data/local/tmp/iridi-keyserver.jar`
-- логи jar на приставке: `/data/local/tmp/iridi-keyserver.log`
+- jar на приставке: `/data/local/tmp/android-tv-agent.jar`
+- логи jar на приставке: `/data/local/tmp/android-tv-agent.log`
 
 ## Основной сценарий
 
@@ -35,7 +35,7 @@ Go       ---> ADB 5555        ---> push jar, start jar, проверка сос�
 4. Нажать `Сканировать сеть`.
 5. Найти приставку и нажать `Запомнить`.
 6. Нажать `Install/Restart`, если jar еще не запущен.
-7. В iRidium отправлять команды на IP Go-сервера по UDP, порт `10000`, либо напрямую на IP приставки, порт `17891`.
+7. В клиенте отправлять команды на IP Go-сервера по UDP, порт `10000`, либо напрямую на IP приставки, порт `17891`.
 
 После этого Go-сервер раз в минуту проверяет запомненные приставки. Если jar не отвечает, сервер ищет приставку по ADB, пушит jar и запускает его заново.
 
@@ -100,7 +100,7 @@ $env:GOARM = "7"
 go build -o adb-http-proxy Main.go
 ```
 
-Важно: jar встроен в Go-бинарь через `go:embed`. Если менялся `android/iridi-keyserver.jar`, после этого нужно пересобрать Go-бинарь.
+Важно: jar встроен в Go-бинарь через `go:embed`. Если менялся `android/android-tv-agent.jar`, после этого нужно пересобрать Go-бинарь.
 
 ## Переменные окружения
 
@@ -133,17 +133,17 @@ http://127.0.0.1:10000
 
 Старый HTTP-прокси `/adb` удалён. Вместо него Go-сервер принимает команды по UDP на `WEB_PORT` и пересылает их в jar запомненной приставки. Если запомнено несколько приставок, используйте прямое подключение к нужной приставке на `17891`: у UDP-прокси пока нет явного выбора активной цели.
 
-## Формат команд для iRidium
+## Формат команд клиента
 
 Рекомендуемый режим: UDP на IP приставки, порт `17891`.
 
-Пример для iRidium:
+Пример команды:
 
 ```text
 'input keyevent 21',13
 ```
 
-`13` - это CR. Jar также понимает LF (`10`) и CR+LF. Для UDP окончание строки не критично, но в iRidium лучше оставлять `,13`, чтобы формат был явным.
+`13` — это CR. Jar также понимает LF (`10`) и CR+LF. Для UDP окончание строки не критично.
 
 Примеры:
 
@@ -183,7 +183,7 @@ OK dropped duplicate
 ERR ...
 ```
 
-Если ответ iRidium не нужен, можно отправлять команды с префиксом `noreply`:
+Если ответ клиенту не нужен, можно отправлять команды с префиксом `noreply`:
 
 ```text
 'noreply input keyevent 22',13
@@ -191,7 +191,7 @@ ERR ...
 
 ## Что умеет jar
 
-`IridiKeyServer.jar`:
+`AndroidTVAgent.jar`:
 
 - слушает TCP и UDP на `17891`;
 - принимает команды с CR, LF, CR+LF или без окончания строки на UDP;
@@ -199,7 +199,7 @@ ERR ...
 - умеет несколько keyevent в одной команде, например `input keyevent 21 22`;
 - умеет `--longpress`;
 - умеет запускать shell-команды с таймаутом 10 секунд;
-- пишет логи в stdout/stderr, при запуске Go они уходят в `/data/local/tmp/iridi-keyserver.log`;
+- пишет логи в stdout/stderr, при запуске Go они уходят в `/data/local/tmp/android-tv-agent.log`;
 - отбрасывает одинаковые keyevent, пришедшие быстрее `JAR_DUPLICATE_DROP_MS`, чтобы не было случайных дублей.
 
 ## Root нужен?
@@ -257,14 +257,14 @@ Get-Content .\server.err.log -Tail 100
 Посмотреть лог jar на приставке:
 
 ```powershell
-adb -s 192.168.88.30:5555 shell tail -n 100 /data/local/tmp/iridi-keyserver.log
+adb -s 192.168.88.30:5555 shell tail -n 100 /data/local/tmp/android-tv-agent.log
 ```
 
 Ручной запуск jar через ADB:
 
 ```powershell
-adb -s 192.168.88.30:5555 push android\iridi-keyserver.jar /data/local/tmp/iridi-keyserver.jar
-adb -s 192.168.88.30:5555 shell "setsid sh -c 'CLASSPATH=/data/local/tmp/iridi-keyserver.jar exec app_process / IridiKeyServer 17891 0 1 90 >/data/local/tmp/iridi-keyserver.log 2>&1 < /dev/null' >/dev/null 2>&1 &"
+adb -s 192.168.88.30:5555 push android\android-tv-agent.jar /data/local/tmp/android-tv-agent.jar
+adb -s 192.168.88.30:5555 shell "setsid sh -c 'CLASSPATH=/data/local/tmp/android-tv-agent.jar exec app_process / AndroidTVAgent 17891 0 1 90 >/data/local/tmp/android-tv-agent.log 2>&1 < /dev/null' >/dev/null 2>&1 &"
 ```
 
 ## Частые проблемы
@@ -273,11 +273,11 @@ adb -s 192.168.88.30:5555 shell "setsid sh -c 'CLASSPATH=/data/local/tmp/iridi-k
 
 Обновите страницу через `Ctrl+F5`. Сервер отдает `Cache-Control: no-store`, но старый браузер мог держать предыдущий HTML.
 
-### В iRidium нет реакции
+### Клиент отправляет команды, но реакции нет
 
 Проверьте:
 
-- iRidium отправляет на IP приставки, а не на IP Go-сервера;
+- клиент отправляет на правильный адрес: на IP Go-сервера для UDP-прокси либо на IP приставки для прямого подключения;
 - протокол UDP или TCP, порт `17891`;
 - команда оформлена строкой, например `'input keyevent 22',13`;
 - jar отвечает на `ping`;
@@ -289,4 +289,4 @@ adb -s 192.168.88.30:5555 shell "setsid sh -c 'CLASSPATH=/data/local/tmp/iridi-k
 
 ### После изменения Java ничего не поменялось
 
-Нужно пересобрать `android/iridi-keyserver.jar`, а потом пересобрать Go-бинарь, потому что jar embedded внутри Go.
+Нужно пересобрать `android/android-tv-agent.jar`, а потом пересобрать Go-бинарь, потому что jar embedded внутри Go.

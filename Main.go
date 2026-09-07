@@ -32,14 +32,14 @@ const (
 	defaultADBTimeout          = 12 * time.Second
 	defaultJarTimeout          = 1500 * time.Millisecond
 	stateFileName              = "devices.json"
-	keyServerDevicePath        = "/data/local/tmp/iridi-keyserver.jar"
-	nativeKeyServerDevicePath  = "/data/local/tmp/iridi-keyserver-linux-arm64"
+	keyServerDevicePath        = "/data/local/tmp/android-tv-agent.jar"
+	nativeKeyServerDevicePath  = "/data/local/tmp/android-tv-agent-linux-arm64"
 )
 
-//go:embed android/iridi-keyserver.jar
+//go:embed android/android-tv-agent.jar
 var keyServerJar []byte
 
-//go:embed android/iridi-keyserver-linux-arm64
+//go:embed android/android-tv-agent-linux-arm64
 var nativeKeyServer []byte
 
 type Device struct {
@@ -545,21 +545,21 @@ func (a *App) deployPayload(ctx context.Context, serial, remotePath, pattern str
 }
 
 func (a *App) deployJar(ctx context.Context, serial string) error {
-	return a.deployPayload(ctx, serial, keyServerDevicePath, "iridi-keyserver-*.jar", keyServerJar)
+	return a.deployPayload(ctx, serial, keyServerDevicePath, "android-tv-agent-*.jar", keyServerJar)
 }
 
 func (a *App) deployNativeKeyServer(ctx context.Context, serial string) error {
-	return a.deployPayload(ctx, serial, nativeKeyServerDevicePath, "iridi-keyserver-linux-arm64-*", nativeKeyServer)
+	return a.deployPayload(ctx, serial, nativeKeyServerDevicePath, "android-tv-agent-linux-arm64-*", nativeKeyServer)
 }
 
 func (a *App) stopKeyServers(ctx context.Context, serial string) {
-	remoteCommand := "for p in /proc/[0-9]*; do cmd=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); case \"$cmd\" in *IridiKeyServer*|*iridi-keyserver-linux-arm64*) kill ${p#/proc/} 2>/dev/null;; esac; done"
+	remoteCommand := "for p in /proc/[0-9]*; do cmd=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); case \"$cmd\" in *AndroidTVAgent*|*KeyServer*|*android-tv-agent-linux-arm64*) kill ${p#/proc/} 2>/dev/null;; esac; done"
 	_, _ = a.adbDevice(ctx, serial, "shell", remoteCommand)
 }
 
 func (a *App) startJar(ctx context.Context, dev Device) error {
 	command := fmt.Sprintf(
-		"setsid sh -c 'AP=app_process; for p in /system/bin/app_process /apex/com.android.runtime/bin/app_process64 /apex/com.android.runtime/bin/app_process32; do [ -x \"$p\" ] && AP=\"$p\" && break; done; CLASSPATH=%s exec \"$AP\" / IridiKeyServer %d 0 %d %d >/data/local/tmp/iridi-keyserver.log 2>&1 < /dev/null' >/dev/null 2>&1 &",
+		"setsid sh -c 'AP=app_process; for p in /system/bin/app_process /apex/com.android.runtime/bin/app_process64 /apex/com.android.runtime/bin/app_process32; do [ -x \"$p\" ] && AP=\"$p\" && break; done; CLASSPATH=%s exec \"$AP\" / AndroidTVAgent %d 0 %d %d >/data/local/tmp/android-tv-agent.log 2>&1 < /dev/null' >/dev/null 2>&1 &",
 		keyServerDevicePath,
 		dev.JarPort,
 		dev.InjectMode,
@@ -574,7 +574,7 @@ func (a *App) startJar(ctx context.Context, dev Device) error {
 
 func (a *App) startNativeKeyServer(ctx context.Context, dev Device) error {
 	command := fmt.Sprintf(
-		"chmod 755 %[1]s; setsid sh -c '%[1]s -port %d -duplicate-drop-ms %d >/data/local/tmp/iridi-keyserver.log 2>&1 < /dev/null' >/dev/null 2>&1 &",
+		"chmod 755 %[1]s; setsid sh -c '%[1]s -port %d -duplicate-drop-ms %d >/data/local/tmp/android-tv-agent.log 2>&1 < /dev/null' >/dev/null 2>&1 &",
 		nativeKeyServerDevicePath,
 		dev.JarPort,
 		dev.DuplicateDropMS,
@@ -1387,7 +1387,7 @@ var pageTemplate = template.Must(template.New("index").Parse(`<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Iridi Android Watchdog</title>
+  <title>Android TV Go Proxy</title>
   <style>
     :root { color-scheme: light; font-family: Inter, Segoe UI, Arial, sans-serif; }
     body { margin: 0; background: #f4f6f8; color: #17202a; }
@@ -1422,7 +1422,7 @@ var pageTemplate = template.Must(template.New("index").Parse(`<!doctype html>
   </style>
 </head>
 <body>
-  <header><h1>Iridi Android Watchdog</h1></header>
+  <header><h1>Android TV Go Proxy</h1></header>
   <main>
     <div class="toolbar">
       <button id="scanBtn" onclick="scan()">Сканировать сеть</button>
@@ -1434,7 +1434,7 @@ var pageTemplate = template.Must(template.New("index").Parse(`<!doctype html>
     <section>
       <h2>Запомненные приставки</h2>
       <table>
-        <thead><tr><th>Устройство</th><th>Адрес</th><th>Статус</th><th>Команды iRidium</th><th>Действия</th></tr></thead>
+        <thead><tr><th>Устройство</th><th>Адрес</th><th>Статус</th><th>Примеры команд</th><th>Действия</th></tr></thead>
         <tbody id="devices"></tbody>
       </table>
     </section>
@@ -1473,7 +1473,7 @@ function deviceTitle(d) {
     + '<div class="muted">'+esc(d.model || '')+' '+esc(d.android_device || '')+'</div>'
     + '<div class="muted">'+esc(d.hostname || '')+' '+esc(d.mac || '')+'</div>';
 }
-function iridium(d) {
+function commandExamples(d) {
   const ip = d.ip || 'IP';
   const port = d.jar_port || 17891;
   return '<div><strong>UDP '+esc(ip)+':'+port+'</strong></div>'
@@ -1522,7 +1522,7 @@ function renderDevices() {
     + '<td data-label="Устройство">'+deviceTitle(d)+'</td>'
     + '<td data-label="Адрес">'+addr(d)+'</td>'
     + '<td data-label="Статус">'+status(d)+'</td>'
-    + '<td data-label="Команды">'+iridium(d)+'</td>'
+    + '<td data-label="Команды">'+commandExamples(d)+'</td>'
     + '<td data-label="Действия"><div class="row-actions">'
     + '<button data-action="install" data-id="'+esc(d.id)+'">Install/Restart</button>'
     + '<button class="secondary" data-action="test" data-id="'+esc(d.id)+'">Test</button>'

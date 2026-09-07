@@ -27,7 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public final class IridiKeyServer {
+public final class AndroidTVAgent {
     private static final int INJECT_INPUT_EVENT_MODE_WAIT_FOR_RESULT = 1;
     private static final int INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH = 2;
     private static final int DEFAULT_PORT = 17891;
@@ -60,7 +60,7 @@ public final class IridiKeyServer {
         void send(String response) throws Exception;
     }
 
-    private IridiKeyServer(int keyIntervalMS, int injectMode, int duplicateDropMS) throws Exception {
+    private AndroidTVAgent(int keyIntervalMS, int injectMode, int duplicateDropMS) throws Exception {
         this.keyIntervalMS = keyIntervalMS;
         this.injectMode = injectMode;
         this.duplicateDropMS = duplicateDropMS;
@@ -74,7 +74,7 @@ public final class IridiKeyServer {
         int keyIntervalMS = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_KEY_INTERVAL_MS;
         int injectMode = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_INJECT_MODE;
         int duplicateDropMS = args.length > 3 ? Integer.parseInt(args[3]) : DEFAULT_DUPLICATE_DROP_MS;
-        new IridiKeyServer(keyIntervalMS, injectMode, duplicateDropMS).serve(port);
+        new AndroidTVAgent(keyIntervalMS, injectMode, duplicateDropMS).serve(port);
     }
 
     private void serve(int port) throws Exception {
@@ -92,7 +92,7 @@ public final class IridiKeyServer {
                 public void run() {
                     handle(socket);
                 }
-            }, "iridi-key-client").start();
+            }, "android-tv-key-client").start();
         }
     }
 
@@ -134,7 +134,7 @@ public final class IridiKeyServer {
                     }
                 }
             }
-        }, "iridi-key-udp").start();
+        }, "android-tv-key-udp").start();
     }
 
     private void handle(Socket socket) {

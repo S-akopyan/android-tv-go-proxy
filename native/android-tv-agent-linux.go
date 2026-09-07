@@ -126,7 +126,7 @@ func newKeyServer(duplicateDropMS int) (*keyServer, error) {
 	}
 
 	var dev uinputUserDev
-	copy(dev.Name[:], []byte("IridiKeyServer"))
+	copy(dev.Name[:], []byte("AndroidTVAgent"))
 	dev.ID = inputID{Bus: 0x03, Vendor: 0x1209, Product: 0x1789, Version: 1}
 	var buf bytes.Buffer
 	if err := binary.Write(&buf, binary.LittleEndian, dev); err != nil {
