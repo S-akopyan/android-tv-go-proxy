@@ -1,0 +1,20 @@
+# Local device state
+devices.json
+
+# Logs
+*.log
+
+# Local executables
+/adb-http-proxy
+/adb-http-proxy.exe
+/adb-http-proxy.exe~
+
+# Intermediate build output
+/build/
+/android/build/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
