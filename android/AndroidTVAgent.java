@@ -92,7 +92,7 @@ public final class AndroidTVAgent {
                 public void run() {
                     handle(socket);
                 }
-            }, "android-tv-key-client").start();
+            }, "androidtv-client").start();
         }
     }
 
@@ -134,7 +134,7 @@ public final class AndroidTVAgent {
                     }
                 }
             }
-        }, "android-tv-key-udp").start();
+        }, "androidtv-udp").start();
     }
 
     private void handle(Socket socket) {
